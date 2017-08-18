@@ -63,7 +63,20 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		}
 	}
 
-	return mc.Begin()
+	if corba, ok := ctx.Value("corba").(bool); ok && corba {
+		return mc.beginSilently()
+	} else {
+		return mc.Begin()
+	}
+}
+
+func (mc *mysqlConn) beginSilently() (driver.Tx, error) {
+	if mc.closed.IsSet() {
+		errLog.Print(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
+
+	return &mysqlTx{mc}, nil
 }
 
 func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
